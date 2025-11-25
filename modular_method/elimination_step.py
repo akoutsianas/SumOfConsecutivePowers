@@ -20,12 +20,12 @@ def bound_exponent_n(k, primes_bound = 50):
         - primes_bound: an upper bound of the primes we use in the elimination step
 
     OUTPUT:
-        - bol: True, if the modular method succeed, otherwise False
-        - bound: an upper bound of the exponent n
+        A dictionary with the rational newforms over this elimination step fails and a list of small primes the modular
+        method can not eliminate for the remaining newforms.
     """
 
     if k % 4 != 2:
-        raise ValueError(f"k is not 2 mod(4)!")
+        raise ValueError(f"k is not equal to 2 mod(4)!")
 
     Ex = lambda x: EllipticCurve([0, 2*x, 0, x**2 + 1, 0])
     values_d_d1 = VALUES_d_d1[k]
@@ -71,3 +71,61 @@ def bound_exponent_n(k, primes_bound = 50):
                 info[d]['failed_newforms'].append(fnew)
             # break
     return info
+
+
+def eliminate_for_give_n(k, info, bound_n, bound_t=50):
+    """
+    INPUT:
+        - k: an integer equivalent 2 mod 4
+        - info: the dictionary that we get from bound_exponent_n function
+        - Bn: an upper bound of n
+        - t_bound: a bound of t such that l = t*n + 1
+
+    OUTPUT:
+        A list of prime betwenn 7 and Bn that we are not able to eliminate all newforms
+    """
+    fk = compute_fk(k)
+    fk = fk(fk.parent().gen()**2)
+    print(f"fk: {fk}")
+    fk /= 2**(k-2)
+    Ex = lambda x: EllipticCurve([0, 2 * x, 0, x ** 2 + 1, 0])
+    for n in prime_range(7, bound_n + 1):
+        print(f"Eliminate n: {n}")
+        eliminate_n = False
+        for t in range(2, bound_t):
+            l = ZZ(t)*n + 1
+            if l in Primes() and ZZ(k/2) % l != 0:
+                # print(f"l: {l}")
+                suitable_l = True
+                Fl = FiniteField(l)
+                fkbar = fk.change_ring(Fl)
+                y = polygen(Fl, 'y')
+                t_unit_roots = [r[0] for r in (y**t - 1).roots()]
+                for d in VALUES_d_d1[k].keys():
+                    for d1 in VALUES_d_d1[k][d]:
+                        d2 = 1/(Fl(d)**2 * Fl(d1))
+                        for zt in t_unit_roots:
+                            X0 = [r[0] for r in (y**2 + 1 - 2*Fl(d)*Fl(d1)*zt).roots()]
+                            for x0 in X0:
+                                if Fl(fkbar(x0) / (Fl(d) * Fl(d2))) in t_unit_roots:
+                                    aEx0 = l + 1 - Ex(x0).order()
+                                    for i, fnew in enumerate(info[d]['failed_newforms']):
+                                        diff = aEx0 - fnew[l]
+                                        if diff % n == 0:
+                                            suitable_l = False
+                                            break
+                                        # print(f"diff-{i}: {diff}")
+                # print(f"Suitable_l: {suitable_l}")
+                if suitable_l:
+                    eliminate_n = True
+                    break
+        print(f"eliminate_n: {eliminate_n}-{n}")
+
+
+
+def compute_fk(k):
+    x = polygen(QQ, 'x')
+    g = ((x - 1)**k + (x + 1)**k)/2
+    f = x.parent(g/(x**2 + 1))
+    f = sum([fi*x**i for i, fi in enumerate(f.coefficients())])
+    return f
