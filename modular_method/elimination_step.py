@@ -73,7 +73,7 @@ def bound_exponent_n(k, primes_bound = 50):
     return info
 
 
-def eliminate_for_give_n(k, info, bound_n, bound_t=50):
+def eliminate_for_give_n(k, info, bound_n, bound_t=50, lower_bound_n=7):
     """
     INPUT:
         - k: an integer equivalent 2 mod 4
@@ -82,19 +82,20 @@ def eliminate_for_give_n(k, info, bound_n, bound_t=50):
         - t_bound: a bound of t such that l = t*n + 1
 
     OUTPUT:
-        A list of prime betwenn 7 and Bn that we are not able to eliminate all newforms
+        A list of prime between 7 and Bn that we are not able to eliminate using Proposition 5.3
     """
     fk = compute_fk(k)
     fk = fk(fk.parent().gen()**2)
     print(f"fk: {fk}")
     fk /= 2**(k-2)
     Ex = lambda x: EllipticCurve([0, 2 * x, 0, x ** 2 + 1, 0])
-    for n in prime_range(7, bound_n + 1):
-        print(f"Eliminate n: {n}")
+    problematic_n = []
+    for n in prime_range(lower_bound_n, bound_n + 1):
+        print(f"Exponent n: {n}")
         eliminate_n = False
-        for t in range(2, bound_t):
+        for t in range(2, bound_t + 1):
             l = ZZ(t)*n + 1
-            if l in Primes() and ZZ(k/2) % l != 0:
+            if (l%4 == 3) and (l in Primes()) and (ZZ(k/2) % l != 0):
                 # print(f"l: {l}")
                 suitable_l = True
                 Fl = FiniteField(l)
@@ -107,7 +108,8 @@ def eliminate_for_give_n(k, info, bound_n, bound_t=50):
                         for zt in t_unit_roots:
                             X0 = [r[0] for r in (y**2 + 1 - 2*Fl(d)*Fl(d1)*zt).roots()]
                             for x0 in X0:
-                                if Fl(fkbar(x0) / (Fl(d) * Fl(d2))) in t_unit_roots:
+                                y2 = Fl(fkbar(x0) / (Fl(d) * Fl(d2)))
+                                if y2 in t_unit_roots or y2.is_zero():
                                     aEx0 = l + 1 - Ex(x0).order()
                                     for i, fnew in enumerate(info[d]['failed_newforms']):
                                         diff = aEx0 - fnew[l]
@@ -119,8 +121,11 @@ def eliminate_for_give_n(k, info, bound_n, bound_t=50):
                 if suitable_l:
                     eliminate_n = True
                     break
+        if not eliminate_n:
+            problematic_n.append(n)
         print(f"eliminate_n: {eliminate_n}-{n}")
 
+    return problematic_n
 
 
 def compute_fk(k):
