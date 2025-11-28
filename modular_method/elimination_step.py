@@ -73,7 +73,7 @@ def bound_exponent_n(k, primes_bound = 50):
     return info
 
 
-def eliminate_for_give_n(k, info, bound_n, bound_t=50, lower_bound_n=7):
+def eliminate_exponents_range(k, info, bound_n, bound_t=50, lower_bound_n=7):
     """
     INPUT:
         - k: an integer equivalent 2 mod 4
@@ -88,44 +88,53 @@ def eliminate_for_give_n(k, info, bound_n, bound_t=50, lower_bound_n=7):
     fk = fk(fk.parent().gen()**2)
     print(f"fk: {fk}")
     fk /= 2**(k-2)
-    Ex = lambda x: EllipticCurve([0, 2 * x, 0, x ** 2 + 1, 0])
     problematic_n = []
     for n in prime_range(lower_bound_n, bound_n + 1):
-        print(f"Exponent n: {n}")
-        eliminate_n = False
-        for t in range(2, bound_t + 1):
-            l = ZZ(t)*n + 1
-            if (l%4 == 3) and (l in Primes()) and (ZZ(k/2) % l != 0):
-                # print(f"l: {l}")
-                suitable_l = True
-                Fl = FiniteField(l)
-                fkbar = fk.change_ring(Fl)
-                y = polygen(Fl, 'y')
-                t_unit_roots = [r[0] for r in (y**t - 1).roots()]
-                for d in VALUES_d_d1[k].keys():
-                    for d1 in VALUES_d_d1[k][d]:
-                        d2 = 1/(Fl(d)**2 * Fl(d1))
-                        for zt in t_unit_roots:
-                            X0 = [r[0] for r in (y**2 + 1 - 2*Fl(d)*Fl(d1)*zt).roots()]
-                            for x0 in X0:
-                                y2 = Fl(fkbar(x0) / (Fl(d) * Fl(d2)))
-                                if y2 in t_unit_roots or y2.is_zero():
-                                    aEx0 = l + 1 - Ex(x0).order()
-                                    for i, fnew in enumerate(info[d]['failed_newforms']):
-                                        diff = aEx0 - fnew[l]
+        success_n = eliminate_n(k, n, info, fk, bound_t=bound_t)
+        if not success_n:
+            problematic_n.append(n)
+        print(f"eliminate_n: {success_n}-{n}")
+
+    return problematic_n
+
+
+def eliminate_n(k, n, info, fk, bound_t=50):
+    Ex = lambda x: EllipticCurve([0, 2 * x, 0, x ** 2 + 1, 0])
+    print(f"Exponent n: {n}")
+    eliminate_n = False
+    for t in range(2, bound_t + 1):
+        l = ZZ(t) * n + 1
+        if (l in Primes()) and (ZZ(k / 2) % l != 0):
+            suitable_l = True
+            Fl = FiniteField(l)
+            fkbar = fk.change_ring(Fl)
+            y = polygen(Fl, 'y')
+            t_unit_roots = [r[0] for r in (y ** t - 1).roots()]
+            if l % 4 == 1:
+                t_unit_roots.append(Fl(0))
+            for d in VALUES_d_d1[k].keys():
+                for d1 in VALUES_d_d1[k][d]:
+                    d2 = 1 / (Fl(d) ** 2 * Fl(d1))
+                    for zt in t_unit_roots:
+                        X0 = [r[0] for r in (y ** 2 + 1 - 2 * Fl(d) * Fl(d1) * zt).roots()]
+                        for x0 in X0:
+                            y2 = Fl(fkbar(x0) / (Fl(d) * Fl(d2)))
+                            if y2 in t_unit_roots or y2.is_zero():
+                                aEx0 = l + 1 - Ex(x0).order()
+                                for i, fnew in enumerate(info[d]['failed_newforms']):
+                                    diff = (aEx0 - fnew[l]).norm()
+                                    if diff % n == 0:
+                                        suitable_l = False
+                                        break
+                                    if l % 4 == 1:
+                                        diff = (4 - fnew[l] ** 2).norm()
                                         if diff % n == 0:
                                             suitable_l = False
                                             break
-                                        # print(f"diff-{i}: {diff}")
-                # print(f"Suitable_l: {suitable_l}")
-                if suitable_l:
-                    eliminate_n = True
-                    break
-        if not eliminate_n:
-            problematic_n.append(n)
-        print(f"eliminate_n: {eliminate_n}-{n}")
-
-    return problematic_n
+            if suitable_l:
+                eliminate_n = True
+                break
+    return eliminate_n
 
 
 def compute_fk(k):
