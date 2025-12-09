@@ -1,3 +1,5 @@
+from sage.parallel.use_fork import p_iter_fork
+
 VALUES_d_d1 = {
     10: {5: [1, 1/ZZ(5)**2]},
     26: {13: [1, 1/ZZ(13)**2]},
@@ -75,7 +77,7 @@ class SumOfConsecutivePowersModularMethod:
                     info[d]['failed_newforms'].append(newf)
         self.info = info
 
-    def eliminate_newforms_method_2(self, bound_n, bound_t=50, lower_bound_n=7):
+    def eliminate_newforms_method_2(self, bound_n, bound_t=50, lower_bound_n=7, ncpus=1):
         """
         INPUT:
             - bound_n: an upper bound of n
@@ -87,13 +89,17 @@ class SumOfConsecutivePowersModularMethod:
         if self.info is None:
             raise ValueError(f"You have to apply the 1st elimination method!")
 
+        fork_iterator = p_iter_fork(ncpus=ncpus)
         fk = self.fk(self._x**2)
         fk /= 2**(self.k-2)
         problematic_n = []
-        for n in prime_range(lower_bound_n, bound_n + 1):
-            success_n = self._eliminate_n(n, bound_t=bound_t)
+        inputs = [([n], {'bound_t': bound_t}) for n in prime_range(lower_bound_n, bound_n + 1)]
+        results = list(fork_iterator(self._eliminate_n, inputs))
+        for result in  results:
+            success_n = result[1]
+            n = result[0][0][0]
             if not success_n:
-                problematic_n.append(n)
+                problematic_n.append(result[0][0][0])
             print(f"eliminate_n: {success_n}-{n}")
 
         return problematic_n
