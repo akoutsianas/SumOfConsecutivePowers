@@ -1,4 +1,5 @@
 from sage.parallel.use_fork import p_iter_fork
+from sage.parallel.decorate import Parallel
 
 VALUES_d_d1 = {
     10: {5: [1, 1/ZZ(5)**2]},
@@ -30,7 +31,7 @@ class SumOfConsecutivePowersModularMethod:
         f = sum([fi*x**i for i, fi in enumerate(f.coefficients())])
         return f
 
-    def eliminate_newforms_method_1(self, primes_bound = 50):
+    def eliminate_newforms_method_1(self, primes_bound = 150):
         """
         INPUT
             - primes_bound: an upper bound of the primes we use in the elimination step
@@ -74,7 +75,7 @@ class SumOfConsecutivePowersModularMethod:
                         if q not in info[d]['Bd']:
                             info[d]['Bd'].append(q)
                 else:
-                    info[d]['failed_newforms'].append(newf)
+                    info[d]['failed_newforms'].append([newf, newf.abelian_variety().elliptic_curve()])
         self.info = info
 
     def eliminate_newforms_method_2(self, bound_n, bound_t=50, lower_bound_n=7, ncpus=1):
@@ -92,16 +93,25 @@ class SumOfConsecutivePowersModularMethod:
         fork_iterator = p_iter_fork(ncpus=ncpus)
         fk = self.fk(self._x**2)
         fk /= 2**(self.k-2)
+        inputs = [
+            (
+                [[n for j, n in enumerate(prime_range(lower_bound_n, bound_n + 1)) if j % ncpus == i]],
+                {'bound_t': bound_t}
+            ) for i in range(ncpus)]
+        results = list(fork_iterator(self._eliminate_list_of_n, inputs))
         problematic_n = []
-        inputs = [([n], {'bound_t': bound_t}) for n in prime_range(lower_bound_n, bound_n + 1)]
-        results = list(fork_iterator(self._eliminate_n, inputs))
-        for result in  results:
-            success_n = result[1]
-            n = result[0][0][0]
-            if not success_n:
-                problematic_n.append(result[0][0][0])
-            print(f"eliminate_n: {success_n}-{n}")
+        for result in results:
+            for n in result[1]:
+                problematic_n.append(n)
+        return problematic_n
 
+    def _eliminate_list_of_n(self, n_vals, bound_t=50):
+        problematic_n = []
+        for n in n_vals:
+            success_n = self._eliminate_n(n, bound_t=bound_t)
+            if not success_n:
+                problematic_n.append(n)
+            print(f"eliminate_n: {success_n}-{n}")
         return problematic_n
 
     def _eliminate_n(self, n, bound_t=50):
@@ -127,21 +137,21 @@ class SumOfConsecutivePowersModularMethod:
                     y = polygen(Fl, 'y')
                     t_unit_roots = [r[0] for r in (y ** t - 1).roots()]
                     d2 = 1 / (Fl(d) ** 2 * Fl(d1))
-                    alf = newf[l]
+                    alf = newf[1].ap(l)
                     for zt in t_unit_roots:
                         x0s = [r[0] for r in (y ** 2 + 1 - 2 * Fl(d) * Fl(d1) * zt).roots()]
                         for x0 in x0s:
                             y2 = Fl(fkbar(x0) / (Fl(d) * Fl(d2)))
                             if y2 in t_unit_roots or y2.is_zero():
                                 aEx0 = l + 1 - Ex(x0).order()
-                                diff = (aEx0 - alf).norm()
+                                diff = (aEx0 - alf)
                                 if diff % n == 0:
                                     suitable_newf_l = False
                                     break
                         if not suitable_newf_l:
                             break
                     if l % 4 == 1:
-                        diff = (4 - alf ** 2).norm()
+                        diff = (4 - alf ** 2)
                         if diff % n == 0:
                             suitable_newf_l = False
                     if suitable_newf_l:
