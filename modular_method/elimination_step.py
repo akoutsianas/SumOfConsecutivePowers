@@ -1,34 +1,24 @@
+from sage.all import polygen, ZZ, QQ, EllipticCurve, Newforms, prime_range, prod, gcd, Primes, FiniteField
 from sage.parallel.use_fork import p_iter_fork
 from sage.parallel.decorate import Parallel
 
-VALUES_d_d1 = {
-    10: {5: [1, 1/ZZ(5)**2]},
-    26: {13: [1, 1/ZZ(13)**2]},
-    30: {5: [1, 1/ZZ(5)**2]},
-    34: {17: [1, 1/ZZ(17)**2]},
-    50: {5: [1, 1/ZZ(5)**2], 25: [1, 1/ZZ(5)**4]},
-    58: {29: [1, 1/ZZ(29)**2]},
-    70: {5: [1, 1/ZZ(5)**2]},
-    74: {37: [1, 1/ZZ(37)**2]},
-    78: {13: [1, 1/ZZ(13)**2]},
-    82: {41: [1, 1/ZZ(41)**2]},
-    90: {5: [1, 1/ZZ(5)**2]},
-}
+from config import VALUES_d_d1
 
 
 class SumOfConsecutivePowersModularMethod:
 
     def __init__(self, k):
+        if k % 4 != 2:
+            raise ValueError(f"k is not equal to 2 mod(4)!")
         self.k = k
         self.info = None
         self._x = polygen(QQ, 'x')
         self.fk = self._compute_fk()
 
     def _compute_fk(self):
-        x = polygen(QQ, 'x')
         g = ((self._x - 1)**self.k + (self._x + 1)**self.k)/2
         f = self._x.parent(g/(self._x**2 + 1))
-        f = sum([fi*x**i for i, fi in enumerate(f.coefficients())])
+        f = sum([fi * self._x**i for i, fi in enumerate(f.coefficients())])
         return f
 
     def eliminate_newforms_method_1(self, primes_bound = 150):
@@ -40,10 +30,6 @@ class SumOfConsecutivePowersModularMethod:
             Saves in info variable a dictionary with the rational newforms over this elimination step fails and a list
             of small primes the modular method can not eliminate for the remaining newforms.
         """
-
-        if self.k % 4 != 2:
-            raise ValueError(f"k is not equal to 2 mod(4)!")
-
         Ex = lambda x: EllipticCurve([0, 2*x, 0, x**2 + 1, 0])
         values_d_d1 = VALUES_d_d1[self.k]
         info = {}
