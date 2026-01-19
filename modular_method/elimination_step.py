@@ -99,11 +99,11 @@ class SumOfConsecutivePowersModularMethod:
             success_n = self._eliminate_n(n, bound_t=bound_t)
             if not success_n:
                 problematic_n.append(n)
-            print(f"eliminate_n: {success_n}-{n}")
+            # print(f"eliminate_n: {success_n}-{n}")
         return problematic_n
 
     def _eliminate_n(self, n, bound_t=50):
-        print(f"Exponent n: {n}")
+        # print(f"Exponent n: {n}")
         for d in VALUES_d_d1[self.k].keys():
             for d1 in VALUES_d_d1[self.k][d]:
                 if not self._eliminate_n_newforms(n, d, d1, bound_t=bound_t):
