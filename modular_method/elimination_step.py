@@ -68,7 +68,9 @@ class SumOfConsecutivePowersModularMethod:
         """
         INPUT:
             - bound_n: an upper bound of n
-            - t_bound: a bound of t such that l = t*n + 1
+            - bound_t: a bound of t such that l = t*n + 1
+            - lower_bound_n: the lower bound of the range of primes
+            - ncpus: the number of cpus we use in parallel
 
         OUTPUT:
             A list of prime between 7 and bound_n that we are not able to eliminate using Proposition 5.3

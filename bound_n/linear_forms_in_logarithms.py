@@ -1,4 +1,4 @@
-from sage.all import log, polygen, prod, Subsets, Infinity, QQ, ZZ, RR, round
+from sage.all import log, polygen, prod, Subsets, Infinity, QQ, ZZ, RR, round, previous_prime, Primes
 
 from config import laurent_constants
 
@@ -63,7 +63,6 @@ class LinearFormsInLogarithms:
             bound[d] = bound_d
         return bound
 
-
     def _linear_forms_in_logarithms_bound(self, d, m, C1, step_n=1000, y1_lbound=3):
         """
         INPUT:
@@ -88,7 +87,7 @@ class LinearFormsInLogarithms:
             bound_pair = max([temp_bound, bound_pair])
 
             ### Max (log(b' + 0.21))
-            logf = lambda x: C1 * E * logA2 * (log(x/logA2 + 1) + 0.21)**2 + C/log(3)
+            logf = lambda x: C1 * E * logA2 * (log(x/logA2 + 1) + 0.21)**2 + C/log(y1_lbound)
             n = 5
             while n <= logf(n):
                 n += step_n
@@ -96,5 +95,7 @@ class LinearFormsInLogarithms:
                 n -= 1
             bound_pair = ZZ(round(max([n, bound_pair])))
             bound = max([bound, bound_pair])
+        if not bound in Primes():
+            bound = previous_prime(bound)
         return bound
 
