@@ -1,4 +1,4 @@
-from sage.all import log, polygen, prod, Subsets, Infinity
+from sage.all import log, polygen, prod, Subsets, Infinity, QQ, ZZ
 
 from config import laurent_constants
 
@@ -64,7 +64,7 @@ class LinearFormsInLogarithms:
         return bound
 
 
-    def _linear_forms_in_logarithms_bound(self, d, m, C1, step_n=1000):
+    def _linear_forms_in_logarithms_bound(self, d, m, C1, step_n=1000, y1_lbound=3):
         """
         INPUT:
             m: the constant in Laurent's paper in Table 1
@@ -80,11 +80,11 @@ class LinearFormsInLogarithms:
             a2 = A/2**((self.k/2) - 2)
             logA2 = max(log(a2.height()), 1)
             C = log(1.0051 * self._hk / d)
-            E = max([1/log(3), self.k/2 - 1, log(B)/log(3) + log(1.5)/log(3) + self.k/2 - 1])
+            E = max([1/log(y1_lbound), self.k/2 - 1, log(B)/log(y1_lbound) + log(1.5)/log(y1_lbound) + self.k/2 - 1])
             bound_pair = 5
 
             ### Max is m ###
-            temp_bound = C1 * m**2 * logA2 * E + C/log(3)
+            temp_bound = round(C1 * m**2 * logA2 * E + C/log(y1_lbound))
             bound_pair = max([temp_bound, bound_pair])
 
             ### Max (log(b' + 0.21))
