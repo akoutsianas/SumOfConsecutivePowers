@@ -1,4 +1,4 @@
-from sage.all import log, polygen, prod, Subsets, Infinity, QQ, ZZ
+from sage.all import log, polygen, prod, Subsets, Infinity, QQ, ZZ, RR, round
 
 from config import laurent_constants
 
@@ -84,7 +84,7 @@ class LinearFormsInLogarithms:
             bound_pair = 5
 
             ### Max is m ###
-            temp_bound = round(C1 * m**2 * logA2 * E + C/log(y1_lbound))
+            temp_bound = round(RR(C1 * m**2 * logA2 * E + C/log(y1_lbound)))
             bound_pair = max([temp_bound, bound_pair])
 
             ### Max (log(b' + 0.21))
