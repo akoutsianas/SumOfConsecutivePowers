@@ -1,4 +1,4 @@
-from sage.all import polygen, ZZ, QQ, EllipticCurve, Newforms, prime_range, prod, gcd, Primes, FiniteField
+from sage.all import polygen, ZZ, QQ, EllipticCurve, Newforms, prime_range, prod, gcd, Primes, FiniteField, Integer
 from sage.parallel.use_fork import p_iter_fork
 from sage.parallel.decorate import Parallel
 
@@ -64,10 +64,10 @@ class SumOfConsecutivePowersModularMethod:
                     info[d]['failed_newforms'].append([newf, newf.abelian_variety().elliptic_curve()])
         self.info = info
 
-    def eliminate_newforms_method_2(self, bound_n, bound_t=50, lower_bound_n=7, ncpus=1):
+    def eliminate_newforms_method_2(self, exponents, bound_t=50, lower_bound_n=7, ncpus=1):
         """
         INPUT:
-            - bound_n: an upper bound of n
+            - exponents: an upper bound of n or a list of exponents
             - bound_t: a bound of t such that l = t*n + 1
             - lower_bound_n: the lower bound of the range of primes
             - ncpus: the number of cpus we use in parallel
@@ -81,11 +81,18 @@ class SumOfConsecutivePowersModularMethod:
         fork_iterator = p_iter_fork(ncpus=ncpus)
         fk = self.fk(self._x**2)
         fk /= 2**(self.k-2)
+        if isinstance(exponents, Integer):
+            primes_range = prime_range(lower_bound_n, exponents + 1)
+        elif isinstance(exponents, list):
+            primes_range = exponents
+        else:
+            raise ValueError('Exponents is not an integer or a list!')
         inputs = [
             (
-                [[n for j, n in enumerate(prime_range(lower_bound_n, bound_n + 1)) if j % ncpus == i]],
+                [[n for j, n in enumerate(primes_range) if j % ncpus == i]],
                 {'bound_t': bound_t}
             ) for i in range(ncpus)]
+        print(f"inputs: {inputs}")
         results = list(fork_iterator(self._eliminate_list_of_n, inputs))
         problematic_n = []
         for result in results:
@@ -99,11 +106,9 @@ class SumOfConsecutivePowersModularMethod:
             success_n = self._eliminate_n(n, bound_t=bound_t)
             if not success_n:
                 problematic_n.append(n)
-            # print(f"eliminate_n: {success_n}-{n}")
         return problematic_n
 
     def _eliminate_n(self, n, bound_t=50):
-        # print(f"Exponent n: {n}")
         for d in VALUES_d_d1[self.k].keys():
             for d1 in VALUES_d_d1[self.k][d]:
                 if not self._eliminate_n_newforms(n, d, d1, bound_t=bound_t):
