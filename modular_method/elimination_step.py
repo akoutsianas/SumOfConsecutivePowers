@@ -92,7 +92,6 @@ class SumOfConsecutivePowersModularMethod:
                 [[n for j, n in enumerate(primes_range) if j % ncpus == i]],
                 {'bound_t': bound_t}
             ) for i in range(ncpus)]
-        print(f"inputs: {inputs}")
         results = list(fork_iterator(self._eliminate_list_of_n, inputs))
         problematic_n = []
         for result in results:
