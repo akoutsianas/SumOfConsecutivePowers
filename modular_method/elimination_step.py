@@ -1,6 +1,9 @@
+import time
 from sage.all import polygen, ZZ, QQ, EllipticCurve, Newforms, prime_range, prod, gcd, Primes, FiniteField, Integer
 from sage.parallel.use_fork import p_iter_fork
 from sage.parallel.decorate import Parallel
+
+from modular_method.bounds_info import pairs_info_n0_values
 
 
 class SumOfConsecutivePowersModularMethod:
@@ -76,7 +79,19 @@ class SumOfConsecutivePowersModularMethod:
                 info['failed_newforms'].append(newf.abelian_variety().elliptic_curve())
         return info
 
-    def eliminate_newforms_method_2_d1_d2(self, d1, d2, exponents, bound_t=50, lower_bound_n=7, ncpus=1):
+    def eliminate_newforms_method_2(self, bound_t=150, lower_bound_n=7, ncpus=1):
+        for pair_info in pairs_info_n0_values[self.k]:
+            d1 = pair_info[0]
+            d2 = pair_info[1]
+            bound = pair_info[2]
+            t0 = time.time()
+            problematic_n = self.eliminate_newforms_method_2_d1_d2(d1, d2, bound, bound_t=bound_t,
+                                                                   lower_bound_n=lower_bound_n, ncpus=ncpus)
+            t1 = time.time()
+            print(f"The problematic exponents for d1={d1} and d2=d2 are {problematic_n}. Time for computation={t1-t0} "
+                  f"and exponents bound={bound}")
+
+    def eliminate_newforms_method_2_d1_d2(self, d1, d2, exponents, bound_t=150, lower_bound_n=7, ncpus=1):
         """
         INPUT:
             - exponents: an upper bound of n or a list of exponents
@@ -110,7 +125,7 @@ class SumOfConsecutivePowersModularMethod:
                 problematic_n.append(n)
         return problematic_n
 
-    def _eliminate_list_of_n_d1_d2(self, d1, d2, n_vals, bound_t=50):
+    def _eliminate_list_of_n_d1_d2(self, d1, d2, n_vals, bound_t=150):
         problematic_n = []
         for n in n_vals:
             success_n = self._eliminate_n_newforms_d1_d2(n, d1, d2, bound_t=bound_t)
