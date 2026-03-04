@@ -2,8 +2,6 @@ from sage.all import polygen, ZZ, QQ, EllipticCurve, Newforms, prime_range, prod
 from sage.parallel.use_fork import p_iter_fork
 from sage.parallel.decorate import Parallel
 
-from config import VALUES_d_d1
-
 
 class SumOfConsecutivePowersModularMethod:
 
@@ -91,10 +89,9 @@ class SumOfConsecutivePowersModularMethod:
         """
         if self.info is None:
             raise ValueError(f"You have to apply the 1st elimination method!")
+        print(f"Elimination method 2 for d1={d1} and d2={d2}.")
 
         fork_iterator = p_iter_fork(ncpus=ncpus)
-        fk = self.fk(self._x**2)
-        fk /= 2**(self.k-2)
         if isinstance(exponents, Integer):
             primes_range = prime_range(lower_bound_n, exponents + 1)
         elif isinstance(exponents, list):
@@ -103,8 +100,7 @@ class SumOfConsecutivePowersModularMethod:
             raise ValueError('Exponents is not an integer or a list!')
         inputs = [
             (
-                d1, d2,
-                [[n for j, n in enumerate(primes_range) if j % ncpus == i]],
+                [d1, d2, [n for j, n in enumerate(primes_range) if j % ncpus == i]],
                 {'bound_t': bound_t}
             ) for i in range(ncpus)]
         results = list(fork_iterator(self._eliminate_list_of_n_d1_d2, inputs))
@@ -124,38 +120,38 @@ class SumOfConsecutivePowersModularMethod:
 
     def _eliminate_n_newforms_d1_d2(self, n, d1, d2, bound_t=50):
         Ex = lambda x: EllipticCurve([0, 2 * x, 0, x ** 2 + 1, 0])
-        not_eliminated_newforms = self.info['failed_newforms'].copy()
+        pair_info = self.info[f"pair_{d1}_{d2}"]
+        not_eliminated_newforms = pair_info['failed_newforms'].copy()
         for t in range(2, bound_t + 1):
             l = ZZ(t) * n + 1
             if (l in Primes()) and (ZZ(self.k / 2) % l != 0):
-                for newf in self.info[d]['failed_newforms']:
-                    if newf not in not_eliminated_newforms:
+                for Ef in pair_info['failed_newforms']:
+                    if Ef not in not_eliminated_newforms:
                         continue
-                    suitable_newf_l = True
+                    suitable_Ef_l = True
                     Fl = FiniteField(l)
                     fkbar = self.fk.change_ring(Fl)
                     y = polygen(Fl, 'y')
                     t_unit_roots = [r[0] for r in (y ** t - 1).roots()]
-                    d2 = 1 / (Fl(d) ** 2 * Fl(d1))
-                    alf = newf[1].ap(l)
+                    alf = Ef.ap(l)
                     for zt in t_unit_roots:
-                        x0s = [r[0] for r in (y ** 2 + 1 - 2 * Fl(d) * Fl(d1) * zt).roots()]
+                        x0s = [r[0] for r in (y ** 2 + 1 - (2 * Fl(d2) * zt) / Fl(d1)).roots()]
                         for x0 in x0s:
-                            y2 = Fl(fkbar(x0) / (Fl(d) * Fl(d2)))
+                            y2 = (fkbar(x0**2) * d2) / (Fl(2)**(self.k-2) * Fl(d1))
                             if y2 in t_unit_roots or y2.is_zero():
                                 aEx0 = l + 1 - Ex(x0).order()
                                 diff = (aEx0 - alf)
                                 if diff % n == 0:
-                                    suitable_newf_l = False
+                                    suitable_Ef_l = False
                                     break
-                        if not suitable_newf_l:
+                        if not suitable_Ef_l:
                             break
                     if l % 4 == 1:
                         diff = (4 - alf ** 2)
                         if diff % n == 0:
-                            suitable_newf_l = False
-                    if suitable_newf_l:
-                        not_eliminated_newforms.remove(newf)
+                            suitable_Ef_l = False
+                    if suitable_Ef_l:
+                        not_eliminated_newforms.remove(Ef)
                 if len(not_eliminated_newforms) == 0:
                     return True
         return False
