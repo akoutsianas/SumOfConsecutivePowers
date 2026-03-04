@@ -11,9 +11,10 @@ class SumOfConsecutivePowersModularMethod:
         if k % 4 != 2:
             raise ValueError(f"k is not equal to 2 mod(4)!")
         self.k = k
-        self.info = None
+        self.info = {}
         self._x = polygen(QQ, 'x')
         self.fk = self._compute_fk()
+        self.pairs_d1_d2 = self._compute_pairs_d1_d2()
 
     def _compute_fk(self):
         g = ((self._x - 1)**self.k + (self._x + 1)**self.k)/2
@@ -21,7 +22,23 @@ class SumOfConsecutivePowersModularMethod:
         f = sum([fi * self._x**i for i, fi in enumerate(f.coefficients())])
         return f
 
-    def eliminate_newforms_method_1(self, primes_bound = 150):
+    def _compute_pairs_d1_d2(self):
+        divs = ZZ(self.k/2).divisors()
+        divs = [d for d in divs if len([1 for p in d.prime_divisors() if p % 4 == 3]) == 0]
+        pairs = []
+        for d1 in divs:
+            for d2 in divs:
+                if gcd(d1, d2) == 1 and d1*d2 != 1:
+                    pairs.append([d1, d2])
+        return pairs
+
+    def eliminate_newforms_method_1(self, primes_bound=50):
+        for pair in self.pairs_d1_d2:
+            d1 = pair[0]
+            d2 = pair[1]
+            self.info[f"pair_{d1}_{d2}"] = self._eliminate_newforms_method_1_d1_d2(d1, d2, primes_bound=primes_bound)
+
+    def _eliminate_newforms_method_1_d1_d2(self, d1, d2, primes_bound=50):
         """
         INPUT
             - primes_bound: an upper bound of the primes we use in the elimination step
@@ -31,40 +48,37 @@ class SumOfConsecutivePowersModularMethod:
             of small primes the modular method can not eliminate for the remaining newforms.
         """
         Ex = lambda x: EllipticCurve([0, 2*x, 0, x**2 + 1, 0])
-        values_d_d1 = VALUES_d_d1[self.k]
-        info = {}
-        for d in values_d_d1.keys():
-            info[d] = {'failed_newforms': [], 'Bd': [2, 3, 5]}
-            D = prod(ZZ(d).prime_factors())
-            newfs = Newforms(2**7 * D, names="theta")
-            print(f"We apply elimination step 1 for d={d}.")
-            for newf in newfs:
-                is_rational = 1 if newf.base_ring().degree == 1 else 0
-                print(f"Elimination step for newform f={newf}")
-                Bqs = []
-                for q in prime_range(primes_bound):
-                    if (2*D) % q != 0:
-                        Bq = q
-                        aqf = newf[q]
-                        for x0 in range(q):
-                            if (x0**2 + 1) % q == 0:
-                                Bq *= aqf**2 - (q + 1)**2
-                            else:
-                                aEx0 = q + 1 - Ex(x0).reduction(q).order()
-                                Bq *= aqf - aEx0
-                        if is_rational:
-                            Bqs.append(Bq)
+        info = {'failed_newforms': [], 'Bd': [2, 3, 5]}
+        D = prod(ZZ(d1*d2).prime_factors())
+        newfs = Newforms(2**7 * D, names="theta")
+        print(f"We apply elimination step 1 for d1={d1} and d2={d2}.")
+        for newf in newfs:
+            is_rational = 1 if newf.base_ring().degree == 1 else 0
+            print(f"Elimination step for newform f={newf}")
+            Bqs = []
+            for q in prime_range(primes_bound):
+                if (2*D) % q != 0:
+                    Bq = q
+                    aqf = newf[q]
+                    for x0 in range(q):
+                        if (x0**2 + 1) % q == 0:
+                            Bq *= aqf**2 - (q + 1)**2
                         else:
-                            Bqs.append(Bq.norm())
-                if gcd(Bqs) != 0:
-                    for q in ZZ(gcd(Bqs)).prime_factors():
-                        if q not in info[d]['Bd']:
-                            info[d]['Bd'].append(q)
-                else:
-                    info[d]['failed_newforms'].append([newf, newf.abelian_variety().elliptic_curve()])
-        self.info = info
+                            aEx0 = q + 1 - Ex(x0).reduction(q).order()
+                            Bq *= aqf - aEx0
+                    if is_rational:
+                        Bqs.append(Bq)
+                    else:
+                        Bqs.append(Bq.norm())
+            if gcd(Bqs) != 0:
+                for q in ZZ(gcd(Bqs)).prime_factors():
+                    if q not in info['Bd']:
+                        info['Bd'].append(q)
+            else:
+                info['failed_newforms'].append(newf.abelian_variety().elliptic_curve())
+        return info
 
-    def eliminate_newforms_method_2(self, exponents, bound_t=50, lower_bound_n=7, ncpus=1):
+    def eliminate_newforms_method_2_d1_d2(self, d1, d2, exponents, bound_t=50, lower_bound_n=7, ncpus=1):
         """
         INPUT:
             - exponents: an upper bound of n or a list of exponents
@@ -89,34 +103,28 @@ class SumOfConsecutivePowersModularMethod:
             raise ValueError('Exponents is not an integer or a list!')
         inputs = [
             (
+                d1, d2,
                 [[n for j, n in enumerate(primes_range) if j % ncpus == i]],
                 {'bound_t': bound_t}
             ) for i in range(ncpus)]
-        results = list(fork_iterator(self._eliminate_list_of_n, inputs))
+        results = list(fork_iterator(self._eliminate_list_of_n_d1_d2, inputs))
         problematic_n = []
         for result in results:
             for n in result[1]:
                 problematic_n.append(n)
         return problematic_n
 
-    def _eliminate_list_of_n(self, n_vals, bound_t=50):
+    def _eliminate_list_of_n_d1_d2(self, d1, d2, n_vals, bound_t=50):
         problematic_n = []
         for n in n_vals:
-            success_n = self._eliminate_n(n, bound_t=bound_t)
+            success_n = self._eliminate_n_newforms_d1_d2(n, d1, d2, bound_t=bound_t)
             if not success_n:
                 problematic_n.append(n)
         return problematic_n
 
-    def _eliminate_n(self, n, bound_t=50):
-        for d in VALUES_d_d1[self.k].keys():
-            for d1 in VALUES_d_d1[self.k][d]:
-                if not self._eliminate_n_newforms(n, d, d1, bound_t=bound_t):
-                    return False
-        return True
-
-    def _eliminate_n_newforms(self, n, d, d1, bound_t=50):
+    def _eliminate_n_newforms_d1_d2(self, n, d1, d2, bound_t=50):
         Ex = lambda x: EllipticCurve([0, 2 * x, 0, x ** 2 + 1, 0])
-        not_eliminated_newforms = self.info[d]['failed_newforms'].copy()
+        not_eliminated_newforms = self.info['failed_newforms'].copy()
         for t in range(2, bound_t + 1):
             l = ZZ(t) * n + 1
             if (l in Primes()) and (ZZ(self.k / 2) % l != 0):
