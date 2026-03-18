@@ -1,6 +1,6 @@
-from sage.all import log, polygen, prod, Subsets, Infinity, QQ, ZZ, RR, round, previous_prime, Primes
+from sage.all import log, polygen, prod, Subsets, Infinity, QQ, ZZ, RR, round, previous_prime, Primes, exp
 
-from config import laurent_constants
+from bound_n.laurent_parameters import laurent_constants
 
 
 class LinearFormsInLogarithms:
@@ -11,9 +11,13 @@ class LinearFormsInLogarithms:
         self.k = k
         self._fk = self._compute_fk()
         self._hks = self._compute_hks()
-        self._hk = self._hks[self.k/2-2]
+        self._hkm2 = self._hks[self.k/2-2]
         self._lower_bound = 2
         self.x0 = self._compute_x0()
+        self._c1 = self._compute_c1()
+        self._A_upper = self.k**(self.k/2) / 2
+        self._n1 = self._compute_n1()
+        self._n2 = self._compute_n2()
 
     def _compute_fk(self):
         x = polygen(QQ, 'x')
@@ -29,73 +33,40 @@ class LinearFormsInLogarithms:
         return hks
 
     def _compute_x0(self):
-        x0 = sum([abs(hi) for hi in self._hks[:-2]]) / self._hk
+        x0 = max([sum([abs(hi) for hi in self._hks[:-2]]) / self._hkm2, 200*self._hkm2, self.k]) + 1
         return x0
 
-    def _compute_ds(self):
-        ds = []
-        for d in ZZ(self.k/2).divisors():
-            if len([p for p in ZZ(d).prime_factors() if p % 4 == 3]) == 0 and d != 1:
-                ds.append(d)
-        return ds
+    def _compute_c1(self):
+        c1 = 0.50255 * self.k**2 * (self.k/2 - 1)
+        return c1
 
-    def _compute_A_B(self, d):
-        """
-            We assume that tp = 1 for all prime divisors of d
-        """
-        S = set(d.prime_factors())
-        pairs = []
-        for P1 in Subsets(S):
-            P2 = S.difference(P1)
-            A = prod([p**(self.k * d.valuation(p)/2) for p in P1]) / prod([p**(self.k * d.valuation(p)/2) for p in P2])
-            B = prod([p for p in P2]) / prod([p**(self.k/2 - 2) for p in P1])
-            pairs.append((A, B))
-        return pairs
+    def _compute_n1(self):
+        n1 = max([log(self._c1/log(self._A_upper))/log(3), log(self._c1)/log(3), (log(self._A_upper) + 1)/log(1.5)])
+        return n1
+
+    def _compute_n2(self):
+        n2 = 100 * (self.k * log(self.k)) / (log(1.5 * 3**(self.k/2 - 1)))
+        return n2
 
     def linear_forms_in_logarithms_best_bound(self, step_n=1000):
-        bound = {}
-        ds = self._compute_ds()
-        for d in ds:
-            bound_d = Infinity
-            for key, value in laurent_constants.items():
-                b0 = self._linear_forms_in_logarithms_bound(d, key, value['c1'], step_n=step_n)
-                bound_d = min([bound_d, b0])
-            bound[d] = bound_d
-        return bound
+        n0 = min([self._linear_forms_in_logarithms(m, C2) for m, C2 in laurent_constants.items()])
+        return n0
 
-    def _linear_forms_in_logarithms_bound(self, d, m, C1, step_n=1000, y1_lbound=3):
-        """
-        INPUT:
-            m: the constant in Laurent's paper in Table 1
-            C1: the constant in Laurent's paper in Table 1
+    def _linear_forms_in_logarithms(self, m, C2, step_n=1000):
+        n3 = self._compute_n3(m)
+        w1 = (self.k/2 - 1 + log(1.5)/log(3)) * self.k * log(self.k)/2
+        w2 = log(0.50255 * self.k**2 * (self.k/2 - 1)) / log(3)
+        f = lambda n: C2 * (log((2.01*n)/(self.k*log(self.k))))**2 * w1 + w2 - n
 
-        OUTPUT:
-            An upper bound of n using linear forms in logarithms.
-        """
+        n0 = 7
+        while f(n0) > 0:
+            n0 += step_n
+        while f(n0) <= 0:
+            n0 -= 1
+        n0 = int(max([self._n1, self._n2, n3, n0]))
+        return n0
 
-        pairs = self._compute_A_B(d)
-        bound = 5
-        for A, B in pairs:
-            a2 = A/2**((self.k/2) - 2)
-            logA2 = max(log(a2.height()), 1)
-            C = log(1.0051 * self._hk / d)
-            E = max([1/log(y1_lbound), self.k/2 - 1, log(B)/log(y1_lbound) + log(1.5)/log(y1_lbound) + self.k/2 - 1])
-            bound_pair = 5
-
-            ### Max is m ###
-            temp_bound = round(RR(C1 * m**2 * logA2 * E + C/log(y1_lbound)))
-            bound_pair = max([temp_bound, bound_pair])
-
-            ### Max (log(b' + 0.21))
-            logf = lambda x: C1 * E * logA2 * (log(x/logA2 + 1) + 0.21)**2 + C/log(y1_lbound)
-            n = 5
-            while n <= logf(n):
-                n += step_n
-            while n > logf(n):
-                n -= 1
-            bound_pair = ZZ(round(max([n, bound_pair])))
-            bound = max([bound, bound_pair])
-        if not bound in Primes():
-            bound = previous_prime(bound)
-        return bound
+    def _compute_n3(self, m):
+        n3 = exp(m - 0.38) * self.k * log(self.k) / 2
+        return n3
 

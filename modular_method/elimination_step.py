@@ -3,8 +3,6 @@ from sage.all import polygen, ZZ, QQ, EllipticCurve, Newforms, prime_range, prod
 from sage.parallel.use_fork import p_iter_fork
 from sage.parallel.decorate import Parallel
 
-from modular_method.bounds_info import pairs_info_n0_values
-
 
 class SumOfConsecutivePowersModularMethod:
 
@@ -170,3 +168,4 @@ class SumOfConsecutivePowersModularMethod:
                 if len(not_eliminated_newforms) == 0:
                     return True
         return False
+
