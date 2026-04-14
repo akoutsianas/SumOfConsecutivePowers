@@ -72,7 +72,6 @@ class SumOfConsecutivePowersModularMethod:
                     else:
                         Bqs.append(Bq.norm())
             if gcd(Bqs) != 0:
-                # info[newf] = ZZ(gcd(Bqs)).prime_factors()
                 for n in ZZ(gcd(Bqs)).prime_factors():
                     if n > 7:
                         print(f"We apply kraus method for the small prime n={n} and newform={newf}")
@@ -88,6 +87,7 @@ class SumOfConsecutivePowersModularMethod:
                             print(f"Kraus method succeeded for all pairs d1 and d2!")
                         else:
                             print(f"Kraus method did not work!")
+                            info['Bd'].append(n)
             else:
                 info['failed_newforms'].append(newf.abelian_variety().elliptic_curve())
         return info
@@ -201,14 +201,14 @@ class SumOfConsecutivePowersModularMethod:
                         y2 = (fkbar(x0**2) * d2) / (Fl(2)**(self.k-2) * Fl(d1))
                         if y2 in t_unit_roots or y2.is_zero():
                             aEx0 = l + 1 - Ex(x0).order()
-                            diff = (aEx0 - alf)
+                            diff = (aEx0 - alf).norm()
                             if diff % n == 0:
                                 suitable_l = False
                                 break
                     if not suitable_l:
                         break
                 if l % 4 == 1:
-                    diff = (4 - alf ** 2)
+                    diff = (4 - alf ** 2).norm()
                     if diff % n == 0:
                         suitable_l = False
                 if suitable_l:
