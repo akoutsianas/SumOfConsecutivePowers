@@ -93,7 +93,7 @@ class SumOfConsecutivePowersModularMethod:
         return info
 
     def eliminate_newforms_method_2(self, bound_t=150, lower_bound_n=11, ncpus=1):
-        bound_n0 = bound_n0_values[self.k]
+        bound_n0 = ZZ(bound_n0_values[self.k])
         for pair in self.pairs_d1_d2:
             d1 = pair[0]
             d2 = pair[1]
