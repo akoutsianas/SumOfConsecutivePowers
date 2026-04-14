@@ -3,6 +3,8 @@ from sage.all import polygen, ZZ, QQ, EllipticCurve, Newforms, prime_range, prod
 from sage.parallel.use_fork import p_iter_fork
 from sage.parallel.decorate import Parallel
 
+from modular_method.bounds_info import bound_n0_values
+
 
 class SumOfConsecutivePowersModularMethod:
 
@@ -70,26 +72,39 @@ class SumOfConsecutivePowersModularMethod:
                     else:
                         Bqs.append(Bq.norm())
             if gcd(Bqs) != 0:
-                for q in ZZ(gcd(Bqs)).prime_factors():
-                    if q not in info['Bd']:
-                        info['Bd'].append(q)
+                # info[newf] = ZZ(gcd(Bqs)).prime_factors()
+                for n in ZZ(gcd(Bqs)).prime_factors():
+                    if n > 7:
+                        print(f"We apply kraus method for the small prime n={n} and newform={newf}")
+                        eliminate_n = True
+                        for pair in self.pairs_d1_d2:
+                            d1 = pair[0]
+                            d2 = pair[1]
+                            eliminate_n_d1_d2 = self._eliminate_n_newform_d1_d2(newf, n, d1, d2)
+                            if not eliminate_n_d1_d2:
+                                eliminate_n = False
+                                break
+                        if eliminate_n:
+                            print(f"Kraus method succeeded for all pairs d1 and d2!")
+                        else:
+                            print(f"Kraus method did not work!")
             else:
                 info['failed_newforms'].append(newf.abelian_variety().elliptic_curve())
         return info
 
-    def eliminate_newforms_method_2(self, bound_t=150, lower_bound_n=7, ncpus=1):
-        for pair_info in pairs_info_n0_values[self.k]:
-            d1 = pair_info[0]
-            d2 = pair_info[1]
-            bound = pair_info[2]
+    def eliminate_newforms_method_2(self, bound_t=150, lower_bound_n=11, ncpus=1):
+        bound_n0 = bound_n0_values[self.k]
+        for pair in self.pairs_d1_d2:
+            d1 = pair[0]
+            d2 = pair[1]
             t0 = time.time()
-            problematic_n = self.eliminate_newforms_method_2_d1_d2(d1, d2, bound, bound_t=bound_t,
+            problematic_n = self.eliminate_newforms_method_2_d1_d2(d1, d2, bound_n0, bound_t=bound_t,
                                                                    lower_bound_n=lower_bound_n, ncpus=ncpus)
             t1 = time.time()
             print(f"The problematic exponents for d1={d1} and d2=d2 are {problematic_n}. Time for computation={t1-t0} "
-                  f"and exponents bound={bound}")
+                  f"and exponents bound={bound_n0}")
 
-    def eliminate_newforms_method_2_d1_d2(self, d1, d2, exponents, bound_t=150, lower_bound_n=7, ncpus=1):
+    def eliminate_newforms_method_2_d1_d2(self, d1, d2, exponents, bound_t=150, lower_bound_n=11, ncpus=1):
         """
         INPUT:
             - exponents: an upper bound of n or a list of exponents
@@ -126,12 +141,12 @@ class SumOfConsecutivePowersModularMethod:
     def _eliminate_list_of_n_d1_d2(self, d1, d2, n_vals, bound_t=150):
         problematic_n = []
         for n in n_vals:
-            success_n = self._eliminate_n_newforms_d1_d2(n, d1, d2, bound_t=bound_t)
+            success_n = self._eliminate_n_rational_newforms_d1_d2(n, d1, d2, bound_t=bound_t)
             if not success_n:
                 problematic_n.append(n)
         return problematic_n
 
-    def _eliminate_n_newforms_d1_d2(self, n, d1, d2, bound_t=50):
+    def _eliminate_n_rational_newforms_d1_d2(self, n, d1, d2, bound_t=550):
         Ex = lambda x: EllipticCurve([0, 2 * x, 0, x ** 2 + 1, 0])
         pair_info = self.info[f"pair_{d1}_{d2}"]
         not_eliminated_newforms = pair_info['failed_newforms'].copy()
@@ -168,4 +183,36 @@ class SumOfConsecutivePowersModularMethod:
                 if len(not_eliminated_newforms) == 0:
                     return True
         return False
+
+    def _eliminate_n_newform_d1_d2(self, fnew, n, d1, d2, bound_t=550):
+        Ex = lambda x: EllipticCurve([0, 2 * x, 0, x ** 2 + 1, 0])
+        for t in range(2, bound_t + 1):
+            l = ZZ(t) * n + 1
+            if (l in Primes()) and (ZZ(self.k / 2) % l != 0):
+                suitable_l = True
+                Fl = FiniteField(l)
+                fkbar = self.fk.change_ring(Fl)
+                y = polygen(Fl, 'y')
+                t_unit_roots = [r[0] for r in (y ** t - 1).roots()]
+                alf = fnew[l]
+                for zt in t_unit_roots:
+                    x0s = [r[0] for r in (y ** 2 + 1 - (2 * Fl(d2) * zt) / Fl(d1)).roots()]
+                    for x0 in x0s:
+                        y2 = (fkbar(x0**2) * d2) / (Fl(2)**(self.k-2) * Fl(d1))
+                        if y2 in t_unit_roots or y2.is_zero():
+                            aEx0 = l + 1 - Ex(x0).order()
+                            diff = (aEx0 - alf)
+                            if diff % n == 0:
+                                suitable_l = False
+                                break
+                    if not suitable_l:
+                        break
+                if l % 4 == 1:
+                    diff = (4 - alf ** 2)
+                    if diff % n == 0:
+                        suitable_l = False
+                if suitable_l:
+                    return True
+        return False
+
 
