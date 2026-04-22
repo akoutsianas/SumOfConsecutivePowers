@@ -10,9 +10,9 @@ class SmallExponentSolutions:
         self.n = n
         self._K = QuadraticField(-1, 'i')
         self._ri = self._K.gen()
+        self._conj = [emb for emb in self._K.embeddings(self._K) if emb(self._ri) != self._ri][0]
         self._alphas = self._compute_alphas()
         self._us = self._compute_us()
-        self._conj = [emb for emb in self._K.embeddings(self._K) if emb(self._ri) != self._ri][0]
 
     def _compute_alphas(self):
         primes = [p for p in self.k.prime_factors() if p % 4 == 1]
@@ -23,6 +23,7 @@ class SmallExponentSolutions:
         for v in product(range(self.n), repeat=len(primes_gen)):
             a = prod([ai**ei for ai, ei in zip(primes_gen, v)])
             alphas.append(a)
+        alphas += [self._conj(a) for a in alphas if self._conj(a) != a]
         return alphas
 
     def _compute_us(self):
