@@ -57,10 +57,11 @@ class LinearFormsInLogarithms:
 
     def _compute_n2(self):
         n2 = max([log(self._c1/log(self._A_upper))/log(3), log(self._c1)/log(3), (log(self._A_upper) + 1)/log(1.5)])
+        n2 = int(n2)
         return n2
 
     def _compute_n3(self):
-        n3 = 100 * (self.k * log(self.k)) / (log(1.5 * 3**(self.k/2 - 1)))
+        n3 = int(100 * (self.k * log(self.k)) / (log(1.5 * 3**(self.k/2 - 1))))
         return n3
 
     def linear_forms_in_logarithms_best_bound(self, step_n=1000):
@@ -82,6 +83,6 @@ class LinearFormsInLogarithms:
         return n0
 
     def _compute_n4(self, m):
-        n4 = exp(m - 0.38) * self.k * log(self.k) / 2
+        n4 = int(exp(m - 0.38) * self.k * log(self.k) / 2)
         return n4
 
