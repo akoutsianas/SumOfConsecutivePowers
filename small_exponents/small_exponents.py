@@ -33,15 +33,11 @@ class SmallExponentSolutions:
             return [1 + self._ri, -1 + self._ri, 1 - self._ri, -1 - self._ri]
 
     def solve_thue_equations(self, ncpus=1):
-        pairs = []
-        for u in self._us:
-            for a in self._alphas:
-                pairs.append((u, a))
-
+        betas = [(1 + self._ri) * alpha for alpha in self._alphas]
         fork_iterator = p_iter_fork(ncpus=ncpus)
         inputs = [
             (
-                [[pair for j, pair in enumerate(pairs) if j % ncpus == i]],
+                [[beta for j, beta in enumerate(betas) if j % ncpus == i]],
             ) for i in range(ncpus)]
         sols_thue = list(fork_iterator(self._solve_thue_equations_for_pairs, inputs))
         sols = []
@@ -51,15 +47,20 @@ class SmallExponentSolutions:
                     sols.append(x0)
         return sols
 
-    def _solve_thue_equations_for_pairs(self, pairs):
+    def _solve_thue_equations_for_pairs(self, betas):
         sols = []
         x = polygen(self._K, 'x')
-        for u, a in pairs:
-            f = (u * a * (x + self._ri) ** self.n - self._conj(u * a) * (x - self._ri) ** self.n) / self._ri
-            f = f.change_ring(ZZ)
-            sols_thue = gp.thue(gp.thueinit(f, 1), 2).sage()
+        for beta in betas:
+            fr = (beta * (x + self._ri) ** self.n + self._conj(beta) * (x - self._ri) ** self.n) / 2
+            fc = (beta * (x + self._ri) ** self.n - self._conj(beta) * (x - self._ri) ** self.n) / (2 * self._ri)
+            fr = fr.change_ring(ZZ)
+            fc = fc.change_ring(ZZ)
+            sols_thue = gp.thue(gp.thueinit(fr, 1), 1).sage()
+            sols_thue += gp.thue(gp.thueinit(fr, 1), -1).sage()
+            sols_thue += gp.thue(gp.thueinit(fc, 1), 1).sage()
+            sols_thue += gp.thue(gp.thueinit(fc, 1), -1).sage()
             for t0, s0 in sols_thue:
-                x0 = (u * a * (t0 + s0 * self._ri) ** self.n + self._conj(u * a) * (t0 - s0 * self._ri) ** self.n) / 2
+                x0 = (beta * (t0 + s0 * self._ri) ** self.n + self._conj(beta) * (t0 - s0 * self._ri) ** self.n) / 2
                 x0 = ZZ(x0)
                 w = ((x0 - 1) / 2) ** self.k + ((x0 + 1) / 2) ** self.k
                 if w.is_perfect_power():
